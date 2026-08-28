@@ -10,7 +10,7 @@
   // The URL looks like: https://your-project.convex.cloud
   // ============================================================
 
-  var CONVEX_URL = "https://proper-hawk-358.convex.cloud";
+  var CONVEX_URL = "https://hidden-warbler-812.convex.cloud";
 
   var _c = {};
   function _f(n, v) {
