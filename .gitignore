@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Locks (committed separately if needed)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Obfuscated build artefacts (keep source, not dist)
+dist/
+build/
+out/
