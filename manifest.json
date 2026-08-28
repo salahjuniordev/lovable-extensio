@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Lovable Pro",
-  "version": "1.1.7",
+  "version": "2.0.0",
   "description": "Lovable Pro - Premium extension by Shoaib Ahmed.",
   "permissions": [
     "storage",
@@ -16,7 +16,8 @@
     "https://api.lovable.dev/*",
     "https://lovable.dev/*",
     "https://lovable-api.com/*",
-    "https://lov.powerkits.net/*"
+    "https://lov.powerkits.net/*",
+    "https://*.convex.cloud/*"
   ],
   "action": {
     "default_title": "Lovable Pro",

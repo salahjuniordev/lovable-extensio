@@ -1,20 +1,16 @@
 (function(){
-  function _d(a, k) {
-    var r = '';
-    for (var i = 0; i < a.length; i++) {
-      r += String.fromCharCode(a[i] ^ k.charCodeAt(i % k.length));
-    }
-    return r;
-  }
+  // ============================================================
+  // Lovable Pro v2.0.0 — Convex Backend Configuration
+  // ============================================================
+  //
+  // IMPORTANT: Set CONVEX_URL to your Convex deployment URL.
+  // You can find this in your Convex dashboard after running:
+  //   npx convex dev
+  //
+  // The URL looks like: https://your-project.convex.cloud
+  // ============================================================
 
-  var _k = '4eF8aD2cB9';
-  var _b = [0x5c,0x11,0x32,0x48,0x12,0x7e,0x1d,0x4c,0x2e,0x56,0x42,0x4b,0x36,0x57,0x16,0x21,0x40,0x8,0x2b,0x4d,0x47,0x4b,0x28,0x5d,0x15];
-  var _k2 = [0x44,0xe,0x19,0x54,0xe,0x32,0x6d,0x6,0x3a,0x4d,0x6b,0x4,0x7e,0x5e,0x52,0x27,0x0,0x52,0x27,0x0,0x50,0x51,0x24,0xf,0x7,0x74,0x57,0x55,0x23,0xb,0x57,0x50,0x22,0x0,0x3,0x75,0x57,0x57,0x24,0xe,0x55,0x55,0x25];
-
-  var _e = {
-    b: _d(_b, _k),
-    k: _d(_k2, _k)
-  };
+  var CONVEX_URL = ""; // <-- SET THIS TO YOUR CONVEX DEPLOYMENT URL
 
   var _c = {};
   function _f(n, v) {
@@ -25,26 +21,37 @@
   }
 
   _f('EXTENSION_NAME', 'Lovable Pro');
-  _f('EXTENSION_VERSION', '1.1.7');
+  _f('EXTENSION_VERSION', '2.0.0');
   _f('DEFAULT_LICENSE_USER_NAME', 'Lovable Pro User');
-  _f('POWERKITS_API_BASE', _e.b);
-  _f('POWERKITS_API_KEY', _e.k);
-  _f('GRINGOW_API_BASE', _e.b);
-  _f('GRINGOW_API_KEY', _e.k);
+  _f('CONVEX_URL', CONVEX_URL);
+  _f('API_BASE', CONVEX_URL ? CONVEX_URL + '/api' : '');
+  _f('API_KEY', ''); // No API key needed for Convex HTTP actions
+  _f('POWERKITS_API_BASE', CONVEX_URL ? CONVEX_URL + '/api' : '');
+  _f('POWERKITS_API_KEY', '');
+  _f('GRINGOW_API_BASE', CONVEX_URL ? CONVEX_URL + '/api' : '');
+  _f('GRINGOW_API_KEY', '');
   _f('DISCORD_SUPPORT_URL', '');
-  _f('PROXY_COMMAND_URL', _e.b + '/functions/v1/proxy-command');
+  _f('PROXY_COMMAND_URL', CONVEX_URL ? CONVEX_URL + '/api/proxy-command' : '');
   _f('SEND_STRATEGY', 'native');
   _f('POWERKITS_DEBUG', false);
-  _f('INTERNAL_LICENSE_MODE', true);
+  _f('INTERNAL_LICENSE_MODE', false); // Disabled — users must validate with license key
   _f('SIDE_PANEL_ONLY', false);
+
+  // API endpoint helpers
+  _f('VALIDATE_LICENSE_URL', CONVEX_URL ? CONVEX_URL + '/api/validate-license' : '');
+  _f('NOTIFICATIONS_URL', CONVEX_URL ? CONVEX_URL + '/api/notifications' : '');
+  _f('CREATE_PROJECT_URL', CONVEX_URL ? CONVEX_URL + '/api/create-lovable-project' : '');
+  _f('REMOVE_WATERMARK_URL', CONVEX_URL ? CONVEX_URL + '/api/remove-watermark' : '');
+  _f('PUBLISH_PROJECT_URL', CONVEX_URL ? CONVEX_URL + '/api/publish-project' : '');
+  _f('ENABLE_CLOUD_URL', CONVEX_URL ? CONVEX_URL + '/api/enable-cloud' : '');
+  _f('DOWNLOAD_SOURCE_URL', CONVEX_URL ? CONVEX_URL + '/api/download-source' : '');
 
   try { if (Object.freeze) Object.freeze(_c); } catch(e) {}
   try {
     if (typeof window._pkS !== 'undefined' && window._pkS) {
       window._pkS.lock('EXTENSION_NAME', EXTENSION_NAME);
       window._pkS.lock('EXTENSION_VERSION', EXTENSION_VERSION);
-      window._pkS.lock('POWERKITS_API_KEY', POWERKITS_API_KEY);
-      window._pkS.lock('INTERNAL_LICENSE_MODE', INTERNAL_LICENSE_MODE);
+      window._pkS.lock('CONVEX_URL', CONVEX_URL);
     }
   } catch(e) {}
 })();
@@ -55,7 +62,7 @@ function extensionVersionShort() {
 
 function extensionFooterBadge() {
   var name = typeof EXTENSION_NAME !== "undefined" ? String(EXTENSION_NAME) : "Lovable Pro";
-  return name + " • v" + extensionVersionShort();
+  return name + " \u2022 v" + extensionVersionShort();
 }
 
 function powerkitsApiHeaders(extra) {
@@ -100,7 +107,7 @@ function gringowInternalSessionStorage(sessionId, userName) {
 
 function readPlanModeFromStorage(res) {
   res = res || {};
-  return !!(res.ql_modo_plano || res.ql_license_mode || res.ql_modo_licença);
+  return !!(res.ql_modo_plano || res.ql_license_mode || res.ql_modo_licenca);
 }
 
 function writePlanModeToStorage(on, cb) {
@@ -109,7 +116,7 @@ function writePlanModeToStorage(on, cb) {
 
 function migratePlanModeStorageKeys(cb) {
   chrome.storage.local.get([
-    "ql_modo_plano", "ql_license_mode", "ql_modo_licença",
+    "ql_modo_plano", "ql_license_mode", "ql_modo_licenca",
     "ql_modo_plano_alert_dismissed", "ql_license_mode_alert_dismissed"
   ], function(res) {
     var patch = {};

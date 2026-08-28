@@ -5,24 +5,25 @@
 
 console.log("[ContentScript] Lovable Pro loaded");
 
+// ============================================================
+// API Configuration — Convex Backend
+// ============================================================
 const API_BASE = typeof POWERKITS_API_BASE !== "undefined" ? POWERKITS_API_BASE : GRINGOW_API_BASE;
 const API_KEY = typeof POWERKITS_API_KEY !== "undefined" ? POWERKITS_API_KEY : GRINGOW_API_KEY;
-const PROXY_COMMAND_URL = (typeof window !== "undefined" && window.PROXY_COMMAND_URL)
-  || (API_BASE + "/functions/v1/proxy-command");
+const CONVEX_URL = typeof CONVEX_URL_VAR !== "undefined" ? CONVEX_URL_VAR : (typeof CONVEX_URL !== "undefined" ? CONVEX_URL : "");
 
+// Convex HTTP action endpoints
+const VALIDATE_URL = typeof VALIDATE_LICENSE_URL !== "undefined" ? VALIDATE_LICENSE_URL : (API_BASE + "/validate-license");
+const NOTIFICATIONS_URL = typeof NOTIFICATIONS_URL_VAR !== "undefined" ? NOTIFICATIONS_URL_VAR : (API_BASE + "/notifications");
+const CREATE_PROJECT_URL_CONVEX = typeof CREATE_PROJECT_URL !== "undefined" ? CREATE_PROJECT_URL : (API_BASE + "/create-lovable-project");
+const REMOVE_WATERMARK_URL_CONVEX = typeof REMOVE_WATERMARK_URL !== "undefined" ? REMOVE_WATERMARK_URL : (API_BASE + "/remove-watermark");
+const PUBLISH_PROJECT_URL_CONVEX = typeof PUBLISH_PROJECT_URL !== "undefined" ? PUBLISH_PROJECT_URL : (API_BASE + "/publish-project");
+const ENABLE_CLOUD_URL_CONVEX = typeof ENABLE_CLOUD_URL !== "undefined" ? ENABLE_CLOUD_URL : (API_BASE + "/enable-cloud");
+const DOWNLOAD_SOURCE_URL_CONVEX = typeof DOWNLOAD_SOURCE_URL !== "undefined" ? DOWNLOAD_SOURCE_URL : (API_BASE + "/download-source");
+
+// Legacy aliases for backward compatibility
 const DISCORD_URL = (typeof DISCORD_SUPPORT_URL !== "undefined" && DISCORD_SUPPORT_URL) || "";
-const VALIDATE_URL = API_BASE + "/functions/v1/validate-license";
-const OPTIMIZE_URL = API_BASE + "/functions/v1/optimize-prompt";
-const NOTIFICATIONS_URL = API_BASE + "/rest/v1/notifications?select=*&order=created_at.desc&limit=20";
-const PACKAGES_URL = API_BASE + "/rest/v1/packages?select=*&is_active=eq.true&order=sort_order.asc";
-const EXT_PAYMENT_URL = API_BASE + "/functions/v1/process-extension-payment";
-const CREATE_PROJECT_URL = API_BASE + "/functions/v1/create-lovable-project";
-const REMOVE_WATERMARK_URL = API_BASE + "/functions/v1/remove-watermark";
-const PUBLISH_PROJECT_URL = API_BASE + "/functions/v1/publish-project";
-const ENABLE_CLOUD_URL = API_BASE + "/functions/v1/enable-cloud";
-const VERSIONS_URL_POPUP = API_BASE + "/rest/v1/extension_versions?select=version,changelog,file_path,is_alert_active&order=created_at.desc&limit=1&is_alert_active=eq.true";
-const USER_ROLES_URL_POPUP = API_BASE + "/rest/v1/user_roles?select=role";
-const LICENSES_URL = API_BASE + "/rest/v1/licenses?select=user_id";
+const PROXY_COMMAND_URL = typeof PROXY_COMMAND_URL_VAR !== "undefined" ? PROXY_COMMAND_URL_VAR : (API_BASE + "/proxy-command");
 
 function apiHeaders(extra) {
   return typeof powerkitsApiHeaders === "function" ? powerkitsApiHeaders(extra) : gringowApiHeaders(extra);
@@ -681,11 +682,11 @@ function showMainUI(box){
     setupDrag();
     setupResize();
     setupDarkMode();
-    setupOptimize();
     setupSpeech();
     setupModoPlano();
     setupFileAttachment();
     setupShield();
+    setupNotifications();
     setupTabs();
     loadChatHistory();
     setupNativeChatButton();
@@ -768,47 +769,7 @@ function showCustomAlert(title, message){
   setTimeout(() => { alert.style.display = "none"; }, 4000);
 }
 
-function setupOptimize(){
-  const btn = document.getElementById("ql-optimize-btn");
-  if(!btn) return;
-  btn.addEventListener("click", async () => {
-    const textarea = document.getElementById("ql-msg");
-    if(!textarea || !textarea.value.trim()) {
-      showCustomAlert("Attention", "Type a prompt before optimizing.");
-      return;
-    }
-    const original = textarea.value.trim();
-    btn.classList.add("ql-tool-loading");
-    btn.disabled = true;
 
-    const storageData = await new Promise(r => chrome.storage.local.get(["ql_license_key"], r));
-    const licenseKey = storageData.ql_license_key || "";
-
-    try {
-      const data = await bgFetch(OPTIMIZE_URL, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          "apikey": API_KEY,
-          "x-license-key": licenseKey
-        },
-        body: JSON.stringify({ prompt: original })
-      });
-      if(data.optimized_prompt) {
-        textarea.value = data.optimized_prompt;
-        showCustomAlert("Prompt Optimized!", "Your prompt was improved with AI and is ready to send.");
-      } else if(data.error) {
-        showCustomAlert("Error", data.error);
-      }
-    } catch(err) {
-      console.error("[Optimize] error:", err);
-      showCustomAlert("Error", "Failed to connect to the optimizer: " + (err.message || ""));
-    } finally {
-      btn.classList.remove("ql-tool-loading");
-      btn.disabled = false;
-    }
-  });
-}
 
 function setupWelcomeNote() {
   var ONBOARD_KEY = "ql_onboarded";
@@ -1118,7 +1079,7 @@ function setupPublishProject(){
 
     try {
       var publishPayload = pkFeatureRequestBody(licenseKey, token, projectId);
-      var result = await bgFetch(PUBLISH_PROJECT_URL, {
+      var result = await bgFetch(PUBLISH_PROJECT_URL_CONVEX, {
         method: "POST",
         headers: pkFeatureApiHeaders(),
         body: JSON.stringify(publishPayload),
@@ -1168,7 +1129,7 @@ function setupEnableCloud(){
 
     try {
       var cloudPayload = pkFeatureRequestBody(licenseKey, token, projectId, { region: "america" });
-      var result = await bgFetch(ENABLE_CLOUD_URL, {
+      var result = await bgFetch(ENABLE_CLOUD_URL_CONVEX, {
         method: "POST",
         headers: pkFeatureApiHeaders(),
         body: JSON.stringify(cloudPayload),
@@ -2032,7 +1993,6 @@ function renderPromptView() {
       '</div>' +
       '<div class="ql-action-center">' +
         '<button id="ql-attach-btn" class="ql-attach-btn" title="Attach file (max. 10)">' + SVG_ICONS.paperclip + '</button>' +
-        '<button id="ql-optimize-btn" class="ql-tool-btn" title="Optimize with AI">' + SVG_ICONS.sparkles + '</button>' +
         '<button id="ql-speech-btn" class="ql-tool-btn" title="Voice to text">' + SVG_ICONS.mic + '</button>' +
       '</div>' +
       '<div class="ql-action-right-send">' +
@@ -2061,7 +2021,6 @@ function renderPromptView() {
   setupSend();
   setupSuggestionChips();
   setupWatermarkButton();
-  setupOptimize();
   setupSpeech();
   setupModoPlano();
   setupFileAttachment();
@@ -2619,43 +2578,24 @@ function setupDownloadProject() {
     if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'ql-log-info'; statusEl.textContent = 'Checking token and project...'; }
 
     try {
-      // ---- Feature flag gate ----
-      try {
-        var flagUrl = API_BASE + "/rest/v1/feature_flags?select=enabled&flag_key=eq.download_files";
-        var flagRows = await bgFetch(flagUrl, { method: "GET", headers: { apikey: API_KEY } });
-        if (flagRows && flagRows.length > 0 && flagRows[0].enabled === false) {
-          throw new Error('Error using the extension resources.');
-        }
-      } catch (flagErr) {
-        if (flagErr && flagErr.message === 'Error using the extension resources.') throw flagErr;
-      }
-
-      var sd = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_projectId'], r); });
+      var sd = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_projectId', 'ql_license_key'], r); });
       var authToken = sd.lovable_token || '';
-      var storedProjectId = sd.lovable_projectId || '';
+      var licenseKey = sd.ql_license_key || '';
       if (authToken.indexOf('Bearer ') === 0) authToken = authToken.slice(7);
-
-      var projectId = storedProjectId;
+      var projectId = sd.lovable_projectId || '';
       if (!projectId) throw new Error('Open a Lovable project page first.');
-      if (!authToken) {
-        var cookieResponse = await new Promise(function(resolve) {
-          chrome.runtime.sendMessage({ action: "readCookies" }, function(resp) { resolve(resp); });
-        });
-        if (cookieResponse && cookieResponse.success && cookieResponse.tokens && cookieResponse.tokens.length > 0) {
-          authToken = cookieResponse.tokens[0].token;
-        }
-      }
       if (!authToken) throw new Error('Token not found. Open a Lovable project and wait for sync.');
 
       btn.textContent = 'Downloading...';
       if (statusEl) statusEl.textContent = 'Downloading project files...';
 
-      var dlResponse = await new Promise(function(resolve) {
-        chrome.runtime.sendMessage({ action: "downloadProject", projectId: projectId, token: authToken }, function(resp) { resolve(resp); });
+      var dlResult = await bgFetch(DOWNLOAD_SOURCE_URL_CONVEX, {
+        method: 'POST',
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ license_key: licenseKey, token: authToken, projeto_id: projectId })
       });
-
-      if (!dlResponse || !dlResponse.success) throw new Error(dlResponse && dlResponse.error ? dlResponse.error : 'Download failed');
-      var files = dlResponse.files;
+      if (!dlResult || dlResult.success === false) throw new Error(dlResult && dlResult.error ? dlResult.error : 'Download failed');
+      var files = dlResult.files || [];
       if (!files || files.length === 0) throw new Error('No files found in the project.');
 
       if (statusEl) statusEl.textContent = 'Creating ZIP with ' + files.length + ' files...';
@@ -2695,38 +2635,10 @@ function setupDownloadProject() {
   });
 }
 
-// ===== UPDATE CHECK (Popup) =====
-async function checkForUpdatePopup() {
-  try {
-    var data = await bgFetch(VERSIONS_URL_POPUP, { method: "GET", headers: { apikey: API_KEY } });
-    if (!data || !data.length) return;
-    var latest = data[0];
-    if (latest.version !== CURRENT_EXT_VERSION_POPUP && latest.is_alert_active) {
-      var banner = document.getElementById('ql-update-banner');
-      if (banner) {
-        var dlUrl = latest.file_path ? API_BASE + "/storage/v1/object/public/extension-releases/" + latest.file_path : null;
-        banner.innerHTML = qlTemplateUpdateBanner(latest.version, latest.changelog || '', dlUrl);
-        banner.style.display = 'block';
-      }
-    }
-  } catch(e) {}
-}
+// ===== UPDATE CHECK - removed (Convex backend) =====
+function checkForUpdatePopup() {}
 
-// ===== RESELLER ROLE CHECK (Popup) =====
-async function checkResellerRolePopup() {
-  try {
-    var storageData = await new Promise(function(r) { chrome.storage.local.get(["ql_license_key"], r); });
-    if (!storageData.ql_license_key) return;
-    var licData = await bgFetch(LICENSES_URL + "&license_key=eq." + encodeURIComponent(storageData.ql_license_key) + "&limit=1", { method: "GET", headers: { apikey: API_KEY } });
-    if (!licData || !licData.length || !licData[0].user_id) return;
-    var userId = licData[0].user_id;
-    var roleData = await bgFetch(USER_ROLES_URL_POPUP + "&user_id=eq." + userId, { method: "GET", headers: { apikey: API_KEY } });
-    if (roleData && Array.isArray(roleData) && roleData.some(function(r) { return r.role === 'reseller' || r.role === 'admin'; })) {
-      var btn = document.getElementById('ql-reseller-btn');
-      if (btn) btn.style.display = 'block';
-    }
-  } catch(e) {}
-}
+function checkResellerRolePopup() {}
 
 // ===== NATIVE CHAT MODE =====
 let qlNativeChatActive = false;

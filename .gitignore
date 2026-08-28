@@ -25,3 +25,5 @@ npm-debug.log*
 dist/
 build/
 out/
+
+.env.local

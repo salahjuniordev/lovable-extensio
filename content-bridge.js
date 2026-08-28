@@ -1,21 +1,44 @@
 /**
- * Minimal Lovable page bridge — registers early so side panel Send always has a receiver.
- * Full UI logic stays in content.js; prompt delivery is shared via window.__pkDeliverPrompt.
+ * Lovable Pro v2.0 — Content Bridge
+ * ============================================================
+ * Registers early so side panel Send always has a receiver.
+ * Manages bypass state with multi-signal guard.
+ * Provides prompt delivery via WebSocket with native DOM fallback.
+ * ============================================================
  */
 (function () {
   if (window.__pkBridgeReady) return;
   window.__pkBridgeReady = true;
 
+  var BYPASS_STORAGE_KEY = "__ql_bypass_active";
+  var BYPASS_ATTR = "data-ql-bypass";
+
+  // ============================================================
+  // BYPASS MANAGEMENT — multi-signal
+  // ============================================================
+
   function activatePkCreditBypass() {
-    try { localStorage.setItem("__ql_bypass_active", "1"); } catch (e) {}
-    try { document.documentElement.setAttribute("data-ql-bypass", "1"); } catch (e) {}
+    try { localStorage.setItem(BYPASS_STORAGE_KEY, "1"); } catch (e) {}
+    try { document.documentElement.setAttribute(BYPASS_ATTR, "1"); } catch (e) {}
+    try { document.documentElement.style.setProperty("--ql-bypass", "1"); } catch (e) {}
     try { window.postMessage({ type: "qlBypassState", active: true }, "*"); } catch (e) {}
   }
 
   function deactivatePkCreditBypass() {
-    try { localStorage.removeItem("__ql_bypass_active"); } catch (e) {}
-    try { document.documentElement.removeAttribute("data-ql-bypass"); } catch (e) {}
+    try { localStorage.removeItem(BYPASS_STORAGE_KEY); } catch (e) {}
+    try { document.documentElement.removeAttribute(BYPASS_ATTR); } catch (e) {}
+    try { document.documentElement.style.removeProperty("--ql-bypass"); } catch (e) {}
     try { window.postMessage({ type: "qlBypassState", active: false }, "*"); } catch (e) {}
+  }
+
+  function isBypassActive() {
+    try {
+      if (localStorage.getItem(BYPASS_STORAGE_KEY) === "1") return true;
+    } catch (e) {}
+    try {
+      if (document.documentElement.getAttribute(BYPASS_ATTR) === "1") return true;
+    } catch (e) {}
+    return false;
   }
 
   function setPkCreditBypass(on) {
@@ -23,20 +46,46 @@
     else deactivatePkCreditBypass();
   }
 
+  // ============================================================
+  // BYPASS GUARD — auto-reapply if page clears it
+  // ============================================================
+
   (function setupBypassGuard() {
-    var obs = new MutationObserver(function () {
-      if (document.documentElement.getAttribute("data-ql-bypass") !== "1") {
-        try {
-          if (localStorage.getItem("__ql_bypass_active") === "1") {
-            activatePkCreditBypass();
-          }
-        } catch (e) {}
+    var _lastKnown = false;
+
+    function syncFromStorage() {
+      var active = isBypassActive();
+      if (active !== _lastKnown) {
+        _lastKnown = active;
+        if (active) activatePkCreditBypass();
       }
-    });
-    if (document.documentElement) {
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-ql-bypass"] });
     }
+
+    // MutationObserver for attribute changes
+    if (typeof MutationObserver !== "undefined" && document.documentElement) {
+      var obs = new MutationObserver(function () {
+        if (_lastKnown && !isBypassActive()) {
+          activatePkCreditBypass();
+        }
+      });
+      obs.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: [BYPASS_ATTR],
+      });
+    }
+
+    // Storage event for cross-context changes
+    window.addEventListener("storage", function (e) {
+      if (e.key === BYPASS_STORAGE_KEY) syncFromStorage();
+    });
+
+    // Periodic check (React can silently clear attributes)
+    setInterval(syncFromStorage, 2000);
   })();
+
+  // ============================================================
+  // SYNC FROM CHROME STORAGE
+  // ============================================================
 
   function syncPkCreditBypassFromStorage() {
     if (typeof INTERNAL_LICENSE_MODE !== "undefined" && INTERNAL_LICENSE_MODE) {
@@ -49,43 +98,21 @@
     });
   }
 
-  window.__pkSetCreditBypass = setPkCreditBypass;
-  window.__pkActivateCreditBypass = activatePkCreditBypass;
-  window.__pkDeactivateCreditBypass = deactivatePkCreditBypass;
-  window.__pkSyncCreditBypass = syncPkCreditBypassFromStorage;
-  syncPkCreditBypassFromStorage();
-  try {
-    chrome.storage.onChanged.addListener(function (changes, area) {
-      if (area !== "local") return;
-      if (changes.ql_license_valid || changes.ql_license_key) syncPkCreditBypassFromStorage();
-    });
-  } catch (e) {}
+  // ============================================================
+  // PROMPT DELIVERY
+  // ============================================================
 
-  function projectIdFromPage() {
-    try {
-      var m = window.location.pathname.match(/projects\/([0-9a-fA-F-]{36})/i);
-      return m ? m[1] : "";
-    } catch (e) {
-      return "";
-    }
-  }
-
-  function _qlUlid() {
-    var C = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-    var ts = Date.now();
-    var r = "";
-    for (var i = 9; i >= 0; i--) {
-      r = C[ts % 32] + r;
-      ts = Math.floor(ts / 32);
-    }
-    for (var j = 0; j < 16; j++) r += C[Math.floor(Math.random() * 32)];
-    return r;
+  function generateId(prefix) {
+    var chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    var id = prefix;
+    for (var i = 0; i < 20; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+    return id;
   }
 
   function sendViaWs(message) {
     return new Promise(function (resolve, reject) {
       var payload = {
-        id: "umsg_" + _qlUlid(),
+        id: generateId("umsg_"),
         message: message,
         files: [],
         selected_elements: [],
@@ -93,13 +120,13 @@
         view: "editor",
         view_description: "",
         optimisticImageUrls: [],
-        ai_message_id: "aimsg_" + _qlUlid(),
+        ai_message_id: generateId("aimsg_"),
         thread_id: "main",
         current_page: window.location.pathname || "/",
         current_viewport_width: window.innerWidth || 1280,
         current_viewport_height: window.innerHeight || 800,
         current_viewport_dpr: window.devicePixelRatio || 1,
-        model: null
+        model: null,
       };
       var timer = setTimeout(function () {
         window.removeEventListener("message", handler);
@@ -125,36 +152,59 @@
     if (!editor) throw new Error("Chat editor not found. Wait for the page to finish loading.");
     var sendBtn = document.getElementById("chatinput-send-message-button");
     if (!sendBtn) throw new Error("Send button not found.");
+
     editor.focus();
+    editor.textContent = "";
     document.execCommand("selectAll", false, null);
     document.execCommand("insertText", false, text);
-    // Wait for React to process input and enable the send button (vendor 3.8.6)
+
+    // Modern input event for React
+    editor.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      cancelable: true,
+      inputType: "insertText",
+      data: text,
+    }));
+
     await new Promise(function (r) { setTimeout(r, 200); });
-    var wasDisabled = sendBtn.disabled;
-    if (wasDisabled) sendBtn.removeAttribute("disabled");
+
+    sendBtn.removeAttribute("disabled");
     sendBtn.click();
-    if (wasDisabled) sendBtn.setAttribute("disabled", "");
   }
 
-  async function deliverPromptToLovable(text) {
+  async function deliverPromptToLovable(text, retryCount) {
+    retryCount = retryCount || 0;
     var strategy = (typeof SEND_STRATEGY !== "undefined" && SEND_STRATEGY) ? SEND_STRATEGY : "native";
-    if (strategy === "relay") {
-      throw new Error("Relay send is disabled. Use native or websocket strategy.");
-    }
-    if (strategy === "websocket") {
+
+    // Try WebSocket first (bypasses credit checks in the WS layer)
+    if (strategy === "websocket" || retryCount > 0) {
       try {
         await sendViaWs(text);
         return;
       } catch (e) {
         if (typeof POWERKITS_DEBUG !== "undefined" && POWERKITS_DEBUG) {
-          console.warn("[PK Bridge] WebSocket failed, using native:", e.message);
+          console.warn("[PK Bridge] WebSocket failed:", e.message);
         }
       }
     }
-    await sendNativeToLovable(text);
+
+    // Fallback to native DOM delivery
+    try {
+      await sendNativeToLovable(text);
+    } catch (nativeError) {
+      // If native fails and we haven't retried, try WS as fallback
+      if (retryCount < 1 && strategy !== "websocket") {
+        return deliverPromptToLovable(text, retryCount + 1);
+      }
+      throw nativeError;
+    }
   }
 
   window.__pkDeliverPrompt = deliverPromptToLovable;
+
+  // ============================================================
+  // MESSAGE LISTENER (from background / content script)
+  // ============================================================
 
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     if (msg && msg.action === "ping") {
@@ -204,10 +254,17 @@
         });
         sendResponse({
           token: sd.lovable_token || "",
-          projectId: projectIdFromPage() || sd.lovable_projectId || ""
+          projectId: projectIdFromPage() || sd.lovable_projectId || "",
         });
       })();
       return true;
     }
   });
+
+  function projectIdFromPage() {
+    try {
+      var m = window.location.pathname.match(/projects\/([0-9a-fA-F-]{36})/i);
+      return m ? m[1] : "";
+    } catch (e) { return ""; }
+  }
 })();
