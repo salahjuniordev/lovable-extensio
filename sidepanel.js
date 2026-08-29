@@ -9,14 +9,14 @@
   const API_BASE = typeof POWERKITS_API_BASE !== "undefined" ? POWERKITS_API_BASE : GRINGOW_API_BASE;
   const API_KEY = typeof POWERKITS_API_KEY !== "undefined" ? POWERKITS_API_KEY : GRINGOW_API_KEY;
   const PROXY_CMD_URL = (typeof window !== "undefined" && window.PROXY_COMMAND_URL)
-    || (API_BASE + "/functions/v1/proxy-command");
+    || (API_BASE + "/proxy-command");
 
-  const VALIDATE_URL = API_BASE + "/api/validate-license";
-  const NOTIFICATIONS_URL = API_BASE + "/api/notifications";
-  const CREATE_PROJECT_URL = API_BASE + "/api/create-lovable-project";
-  const REMOVE_WATERMARK_URL = API_BASE + "/api/remove-watermark";
-  const PUBLISH_PROJECT_URL = API_BASE + "/api/publish-project";
-  const ENABLE_CLOUD_URL = API_BASE + "/api/enable-cloud";
+  const VALIDATE_URL = API_BASE + "/validate-license";
+  const NOTIFICATIONS_URL = API_BASE + "/notifications";
+  const CREATE_PROJECT_URL = API_BASE + "/create-lovable-project";
+  const REMOVE_WATERMARK_URL = API_BASE + "/remove-watermark";
+  const PUBLISH_PROJECT_URL = API_BASE + "/publish-project";
+  const ENABLE_CLOUD_URL = API_BASE + "/enable-cloud";
 
   function apiHeaders(extra) {
     return typeof powerkitsApiHeaders === "function" ? powerkitsApiHeaders(extra) : gringowApiHeaders(extra);
