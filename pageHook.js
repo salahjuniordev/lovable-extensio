@@ -11,6 +11,7 @@
   var BYPASS_ATTR = "data-ql-bypass";
   var _active = false;
   var _hooked = false;
+  var _activeWsInstances = []; // Track all WS instances for prompt delivery
 
   function isActive() {
     if (_active) return true;
@@ -43,7 +44,17 @@
         ws = new OrigWS(url);
       }
 
-      // Hook send on this specific instance
+      // Track this instance for prompt delivery
+      _activeWsInstances.push({ ws: ws, url: url, created: Date.now() });
+
+      // Clean up closed instances periodically
+      if (_activeWsInstances.length > 5) {
+        _activeWsInstances = _activeWsInstances.filter(function(inst) {
+          return inst.ws.readyState <= 1; // CONNECTING or OPEN
+        });
+      }
+
+      // Hook send on this specific instance — modify credit data in outgoing messages
       var origSend = ws.send;
       ws.send = function (data) {
         if (_active && typeof data === "string") {
@@ -128,6 +139,37 @@
     window.WebSocket = FakeWS;
   }
 
+  // ---- Find an open Lovable WebSocket for prompt delivery ----
+  function findActiveLovableWs() {
+    for (var i = _activeWsInstances.length - 1; i >= 0; i--) {
+      var inst = _activeWsInstances[i];
+      try {
+        if (inst.ws.readyState === 1) { // OPEN
+          return inst.ws;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  // ---- Send prompt via active WebSocket ----
+  function sendPromptViaWs(payload) {
+    var ws = findActiveLovableWs();
+    if (!ws) {
+      throw new Error("No active Lovable WebSocket connection. Wait for the page to finish loading.");
+    }
+    try {
+      var data = JSON.stringify(payload);
+      // Use the original send method to bypass our own hooks
+      var proto = Object.getPrototypeOf(ws);
+      // Find the original send by looking at the real WebSocket prototype
+      ws.send(data);
+      return true;
+    } catch (e) {
+      throw new Error("WebSocket send failed: " + (e.message || e));
+    }
+  }
+
   // ---- Message handler ----
   window.addEventListener("message", function (e) {
     if (!e.data || e.source !== window) return;
@@ -136,6 +178,16 @@
       _active = false;
       try { localStorage.removeItem(BYPASS_KEY); } catch (err) {}
       try { document.documentElement.removeAttribute(BYPASS_ATTR); } catch (err) {}
+    }
+
+    // Handle prompt delivery via WebSocket
+    if (e.data.type === "lovableSendViaWs" && e.data.payload) {
+      try {
+        sendPromptViaWs(e.data.payload);
+        window.postMessage({ type: "lovableWsSendResult", success: true }, "*");
+      } catch (err) {
+        window.postMessage({ type: "lovableWsSendResult", success: false, error: err.message || String(err) }, "*");
+      }
     }
   });
 
