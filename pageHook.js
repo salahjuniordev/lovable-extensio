@@ -1,8 +1,8 @@
 // ============================================================
 // Lovable Pro v2.0 — Page Hook (MAIN world)
 // ============================================================
-// Intercepts credit checks via fetch, XHR, WebSocket, and React.
-// Activates ONLY after license validation triggers bypass.
+// Hooks WebSocket constructor to intercept credit data at the
+// instance level. This is how working bypasses actually work.
 // ============================================================
 (function () {
   "use strict";
@@ -10,7 +10,7 @@
   var BYPASS_KEY = "__ql_bypass_active";
   var BYPASS_ATTR = "data-ql-bypass";
   var _active = false;
-  var _patched = false;
+  var _hooked = false;
 
   function isActive() {
     if (_active) return true;
@@ -24,192 +24,119 @@
     try { localStorage.setItem(BYPASS_KEY, "1"); } catch (e) {}
     try { document.documentElement.setAttribute(BYPASS_ATTR, "1"); } catch (e) {}
     try { window.postMessage({ type: "qlBypassState", active: true }, "*"); } catch (e) {}
-    patchAll();
-    // Delayed React patch — React loads after page
-    setTimeout(patchReactState, 3000);
-    setTimeout(patchReactState, 8000);
+    if (!_hooked) hookWebSocket();
   }
 
-  function deactivate() {
-    _active = false;
-    try { localStorage.removeItem(BYPASS_KEY); } catch (e) {}
-    try { document.documentElement.removeAttribute(BYPASS_ATTR); } catch (e) {}
-  }
+  // ---- WebSocket instance-level hook ----
+  function hookWebSocket() {
+    if (_hooked) return;
+    _hooked = true;
 
-  // ---- CREDIT_URL helper ----
-  function isCreditUrl(s) {
-    return /credit|balance|quota|usage|limit|payment|subscription/i.test(s);
-  }
+    var OrigWS = window.WebSocket;
 
-  // ---- Patch fetch ----
-  function patchFetch() {
-    var orig = window.fetch;
-    window.fetch = function () {
-      var url = arguments[0];
-      var s = typeof url === "string" ? url : (url && url.url) || "";
-      if (_active && isCreditUrl(s)) {
-        return Promise.resolve(new Response(
-          JSON.stringify({ credits: 999999, balance: 999999, unlimited: true, hasCredits: true, creditsRemaining: 999999 }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        ));
+    function FakeWS(url, protocols) {
+      // Create real WebSocket
+      var ws;
+      if (protocols !== undefined) {
+        ws = new OrigWS(url, protocols);
+      } else {
+        ws = new OrigWS(url);
       }
-      return orig.apply(this, arguments);
-    };
-  }
 
-  // ---- Patch XHR ----
-  function patchXHR() {
-    var origOpen = XMLHttpRequest.prototype.open;
-    var origSend = XMLHttpRequest.prototype.send;
-    XMLHttpRequest.prototype.open = function (m, url) {
-      this._url = url;
-      return origOpen.apply(this, arguments);
-    };
-    XMLHttpRequest.prototype.send = function () {
-      if (_active && this._url && isCreditUrl(this._url)) {
-        Object.defineProperty(this, "status", { value: 200, writable: false });
-        Object.defineProperty(this, "readyState", { value: 4, writable: false });
-        Object.defineProperty(this, "responseText", {
-          value: JSON.stringify({ credits: 999999, unlimited: true, creditsRemaining: 999999 }),
-          writable: false
-        });
-        var self = this;
-        setTimeout(function () {
-          if (self.onreadystatechange) self.onreadystatechange();
-          if (self.onload) self.onload();
-        }, 10);
-        return;
-      }
-      return origSend.apply(this, arguments);
-    };
-  }
-
-  // ---- Patch WebSocket (prototype — don't replace constructor) ----
-  function patchWebSocket() {
-    var OrigSend = WebSocket.prototype.send;
-    WebSocket.prototype.send = function (data) {
-      if (_active && typeof data === "string") {
-        try {
-          var p = JSON.parse(data);
-          // Remove/override credit fields in outgoing messages
-          if ("credits" in p) p.credits = 999999;
-          if ("balance" in p) p.balance = 999999;
-          if ("creditsRemaining" in p) p.creditsRemaining = 999999;
-          if ("skipCreditCheck" !== undefined) p.skipCreditCheck = true;
-          data = JSON.stringify(p);
-        } catch (e) {}
-      }
-      return OrigSend.call(this, data);
-    };
-
-    // Also patch addEventListener to intercept incoming credit data
-    var OrigAddEventListener = WebSocket.prototype.addEventListener;
-    WebSocket.prototype.addEventListener = function (type, listener, options) {
-      if (type === "message" && _active) {
-        var wrappedListener = function (event) {
+      // Hook send on this specific instance
+      var origSend = ws.send;
+      ws.send = function (data) {
+        if (_active && typeof data === "string") {
           try {
-            var msg = JSON.parse(event.data);
-            var modified = false;
-            if ("credits" in msg) { msg.credits = 999999; modified = true; }
-            if ("balance" in msg) { msg.balance = 999999; modified = true; }
-            if ("creditsRemaining" in msg) { msg.creditsRemaining = 999999; modified = true; }
-            if ("hasCredits" in msg) { msg.hasCredits = true; modified = true; }
-            if (modified) {
-              var newEvent = new MessageEvent("message", {
-                data: JSON.stringify(msg),
-                origin: event.origin,
-                lastEventId: event.lastEventId,
-                source: event.source,
-                ports: event.ports
-              });
-              return listener.call(this, newEvent);
-            }
+            var p = JSON.parse(data);
+            // Set credits to max to prevent server-side deduction trigger
+            if ("credits" in p) p.credits = 999999;
+            if ("balance" in p) p.balance = 999999;
+            if ("creditsRemaining" in p) p.creditsRemaining = 999999;
+            if ("skipCreditCheck" in p || true) p.skipCreditCheck = true;
+            if ("noCreditCheck" in p || true) p.noCreditCheck = true;
+            data = JSON.stringify(p);
           } catch (e) {}
-          return listener.call(this, event);
-        };
-        return OrigAddEventListener.call(this, type, wrappedListener, options);
-      }
-      return OrigAddEventListener.call(this, type, listener, options);
-    };
+        }
+        return origSend.call(ws, data);
+      };
 
-    // Patch onmessage setter
-    var desc = Object.getOwnPropertyDescriptor(WebSocket.prototype, "onmessage") ||
-               Object.getOwnPropertyDescriptor(WebSocket.__proto__, "onmessage");
-    if (desc && desc.set) {
-      var origSet = desc.set;
-      Object.defineProperty(WebSocket.prototype, "onmessage", {
-        get: desc.get,
-        set: function (handler) {
-          if (_active && handler) {
-            var wrapped = function (event) {
+      // Hook addEventListener for incoming messages
+      var origAddEvent = ws.addEventListener.bind(ws);
+      ws.addEventListener = function (type, handler, opts) {
+        if (type === "message" && handler) {
+          var wrapped = function (ev) {
+            if (_active) {
               try {
-                var msg = JSON.parse(event.data);
-                var modified = false;
-                if ("credits" in msg) { msg.credits = 999999; modified = true; }
-                if ("balance" in msg) { msg.balance = 999999; modified = true; }
-                if ("creditsRemaining" in msg) { msg.creditsRemaining = 999999; modified = true; }
-                if ("hasCredits" in msg) { msg.hasCredits = true; modified = true; }
-                if (modified) {
-                  event = new MessageEvent("message", { data: JSON.stringify(msg) });
+                var msg = JSON.parse(ev.data);
+                var changed = false;
+                if ("credits" in msg) { msg.credits = 999999; changed = true; }
+                if ("balance" in msg) { msg.balance = 999999; changed = true; }
+                if ("creditsRemaining" in msg) { msg.creditsRemaining = 999999; changed = true; }
+                if ("hasCredits" in msg) { msg.hasCredits = true; changed = true; }
+                if ("creditWarning" in msg) { msg.creditWarning = false; changed = true; }
+                if ("outOfCredits" in msg) { msg.outOfCredits = false; changed = true; }
+                if (changed) {
+                  ev = new MessageEvent("message", { data: JSON.stringify(msg) });
                 }
               } catch (e) {}
-              return handler.call(this, event);
-            };
-            return origSet.call(this, wrapped);
-          }
-          return origSet.call(this, handler);
+            }
+            return handler.call(this, ev);
+          };
+          return origAddEvent(type, wrapped, opts);
+        }
+        return origAddEvent(type, handler, opts);
+      };
+
+      // Hook onmessage property
+      var _onmsg = null;
+      Object.defineProperty(ws, "onmessage", {
+        get: function () { return _onmsg; },
+        set: function (handler) {
+          _onmsg = handler ? function (ev) {
+            if (_active) {
+              try {
+                var msg = JSON.parse(ev.data);
+                var changed = false;
+                if ("credits" in msg) { msg.credits = 999999; changed = true; }
+                if ("balance" in msg) { msg.balance = 999999; changed = true; }
+                if ("creditsRemaining" in msg) { msg.creditsRemaining = 999999; changed = true; }
+                if ("hasCredits" in msg) { msg.hasCredits = true; changed = true; }
+                if ("creditWarning" in msg) { msg.creditWarning = false; changed = true; }
+                if ("outOfCredits" in msg) { msg.outOfCredits = false; changed = true; }
+                if (changed) {
+                  ev = new MessageEvent("message", { data: JSON.stringify(msg) });
+                }
+              } catch (e) {}
+            }
+            return handler.call(ws, ev);
+          } : null;
         },
         configurable: true
       });
+
+      return ws;
     }
-  }
 
-  // ---- Patch React state ----
-  function patchReactState() {
-    try {
-      var root = document.getElementById("__next") || document.getElementById("root") || document.getElementById("chat-input");
-      if (!root) return;
-      var fiberKey = Object.keys(root).find(function (k) { return k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"); });
-      if (!fiberKey) return;
-      var fiber = root[fiberKey];
-      var count = 0;
-      while (fiber && count < 1000) {
-        count++;
-        if (fiber.memoizedState) {
-          var state = fiber.memoizedState;
-          while (state) {
-            if (state.queue && state.queue.lastRenderedState) {
-              var st = state.queue.lastRenderedState;
-              if (typeof st === "object" && st !== null && ("credits" in st || "balance" in st || "hasCredits" in st || "creditsRemaining" in st)) {
-                try { Object.defineProperty(st, "credits", { value: 999999, configurable: true }); } catch (e) {}
-                try { Object.defineProperty(st, "balance", { value: 999999, configurable: true }); } catch (e) {}
-                try { Object.defineProperty(st, "hasCredits", { value: true, configurable: true }); } catch (e) {}
-                try { Object.defineProperty(st, "creditsRemaining", { value: 999999, configurable: true }); } catch (e) {}
-                try { Object.defineProperty(st, "unlimited", { value: true, configurable: true }); } catch (e) {}
-              }
-            }
-            state = state.next;
-          }
-        }
-        fiber = fiber.child || fiber.sibling || fiber.return;
-      }
-    } catch (e) {}
-  }
+    // Copy static properties and prototype
+    FakeWS.prototype = OrigWS.prototype;
+    FakeWS.CONNECTING = OrigWS.CONNECTING;
+    FakeWS.OPEN = OrigWS.OPEN;
+    FakeWS.CLOSING = OrigWS.CLOSING;
+    FakeWS.CLOSED = OrigWS.CLOSED;
 
-  // ---- Install all interceptors ----
-  function patchAll() {
-    if (_patched) return;
-    _patched = true;
-    patchFetch();
-    patchXHR();
-    patchWebSocket();
+    window.WebSocket = FakeWS;
   }
 
   // ---- Message handler ----
   window.addEventListener("message", function (e) {
     if (!e.data || e.source !== window) return;
     if (e.data.type === "qlActivateBypass") activate();
-    if (e.data.type === "qlDeactivateBypass") deactivate();
+    if (e.data.type === "qlDeactivateBypass") {
+      _active = false;
+      try { localStorage.removeItem(BYPASS_KEY); } catch (err) {}
+      try { document.documentElement.removeAttribute(BYPASS_ATTR); } catch (err) {}
+    }
   });
 
   // ---- Bypass guard ----
@@ -224,6 +151,9 @@
     if (e.key === BYPASS_KEY && e.newValue === "1" && !_active) activate();
   });
 
-  // If already active, patch now
-  if (isActive()) patchAll();
+  // Always hook WebSocket constructor early (before page scripts load)
+  hookWebSocket();
+
+  // If already active, activate now
+  if (isActive()) activate();
 })();
