@@ -88,7 +88,6 @@ function tabPing(tabId) {
 }
 
 var BRIDGE_INJECT_FILES = [
-  "security-hardening.js",
   "extension-config.js",
   "hwFingerprint.js",
   "user-messages.js",

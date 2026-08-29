@@ -11,17 +11,12 @@
   const PROXY_CMD_URL = (typeof window !== "undefined" && window.PROXY_COMMAND_URL)
     || (API_BASE + "/functions/v1/proxy-command");
 
-  const VALIDATE_URL = API_BASE + "/functions/v1/validate-license";
-  const OPTIMIZE_URL = API_BASE + "/functions/v1/optimize-prompt";
-  const NOTIFICATIONS_URL = API_BASE + "/rest/v1/notifications?select=*&order=created_at.desc&limit=20";
-  const PACKAGES_URL = API_BASE + "/rest/v1/packages?select=*&is_active=eq.true&order=sort_order.asc";
-  const VERSIONS_URL = API_BASE + "/rest/v1/extension_versions?select=version,changelog,file_path,is_alert_active&order=created_at.desc&limit=1&is_alert_active=eq.true";
-  const USER_ROLES_URL = API_BASE + "/rest/v1/user_roles?select=role";
-  const LICENSES_URL = API_BASE + "/rest/v1/licenses?select=user_id";
-  const CREATE_PROJECT_URL = API_BASE + "/functions/v1/create-lovable-project";
-  const REMOVE_WATERMARK_URL = API_BASE + "/functions/v1/remove-watermark";
-  const PUBLISH_PROJECT_URL = API_BASE + "/functions/v1/publish-project";
-  const ENABLE_CLOUD_URL = API_BASE + "/functions/v1/enable-cloud";
+  const VALIDATE_URL = API_BASE + "/api/validate-license";
+  const NOTIFICATIONS_URL = API_BASE + "/api/notifications";
+  const CREATE_PROJECT_URL = API_BASE + "/api/create-lovable-project";
+  const REMOVE_WATERMARK_URL = API_BASE + "/api/remove-watermark";
+  const PUBLISH_PROJECT_URL = API_BASE + "/api/publish-project";
+  const ENABLE_CLOUD_URL = API_BASE + "/api/enable-cloud";
 
   function apiHeaders(extra) {
     return typeof powerkitsApiHeaders === "function" ? powerkitsApiHeaders(extra) : gringowApiHeaders(extra);
