@@ -1,7 +1,6 @@
 /**
  * Lovable Pro - User-facing copy: English translations + strip internal/hosting/vendor branding.
  */
- */
 function stripInternalBranding(value) {
   if (value == null) return value;
   var brand = typeof EXTENSION_NAME !== "undefined" ? String(EXTENSION_NAME) : "Lovable Pro";

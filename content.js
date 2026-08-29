@@ -8,9 +8,7 @@ console.log("[ContentScript] Lovable Pro loaded");
 // ============================================================
 // API Configuration — Convex Backend
 // ============================================================
-const API_BASE = typeof POWERKITS_API_BASE !== "undefined" ? POWERKITS_API_BASE : GRINGOW_API_BASE;
-const API_KEY = typeof POWERKITS_API_KEY !== "undefined" ? POWERKITS_API_KEY : GRINGOW_API_KEY;
-const CONVEX_URL = typeof CONVEX_URL_VAR !== "undefined" ? CONVEX_URL_VAR : (typeof CONVEX_URL !== "undefined" ? CONVEX_URL : "");
+// API_BASE, API_KEY, CONVEX_URL are globals from extension-config.js — do not redeclare
 
 // Convex HTTP action endpoints
 const VALIDATE_URL = typeof VALIDATE_LICENSE_URL !== "undefined" ? VALIDATE_LICENSE_URL : (API_BASE + "/validate-license");
