@@ -11,6 +11,7 @@
   // ============================================================
 
   var CONVEX_URL = "https://hidden-warbler-812.convex.cloud";
+  var CONVEX_SITE_URL = "https://hidden-warbler-812.convex.site";
 
   var _c = {};
   function _f(n, v) {
@@ -24,27 +25,27 @@
   _f('EXTENSION_VERSION', '2.0.0');
   _f('DEFAULT_LICENSE_USER_NAME', 'Lovable Pro User');
   _f('CONVEX_URL', CONVEX_URL);
-  _f('API_BASE', CONVEX_URL ? CONVEX_URL + '/api' : '');
+  _f('API_BASE', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api' : '');
   _f('API_KEY', ''); // No API key needed for Convex HTTP actions
-  _f('POWERKITS_API_BASE', CONVEX_URL ? CONVEX_URL + '/api' : '');
+  _f('POWERKITS_API_BASE', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api' : '');
   _f('POWERKITS_API_KEY', '');
-  _f('GRINGOW_API_BASE', CONVEX_URL ? CONVEX_URL + '/api' : '');
+  _f('GRINGOW_API_BASE', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api' : '');
   _f('GRINGOW_API_KEY', '');
   _f('DISCORD_SUPPORT_URL', '');
-  _f('PROXY_COMMAND_URL', CONVEX_URL ? CONVEX_URL + '/api/proxy-command' : '');
+  _f('PROXY_COMMAND_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/proxy-command' : '');
   _f('SEND_STRATEGY', 'native');
   _f('POWERKITS_DEBUG', false);
   _f('INTERNAL_LICENSE_MODE', false); // Disabled — users must validate with license key
   _f('SIDE_PANEL_ONLY', false);
 
   // API endpoint helpers
-  _f('VALIDATE_LICENSE_URL', CONVEX_URL ? CONVEX_URL + '/api/validate-license' : '');
-  _f('NOTIFICATIONS_URL', CONVEX_URL ? CONVEX_URL + '/api/notifications' : '');
-  _f('CREATE_PROJECT_URL', CONVEX_URL ? CONVEX_URL + '/api/create-lovable-project' : '');
-  _f('REMOVE_WATERMARK_URL', CONVEX_URL ? CONVEX_URL + '/api/remove-watermark' : '');
-  _f('PUBLISH_PROJECT_URL', CONVEX_URL ? CONVEX_URL + '/api/publish-project' : '');
-  _f('ENABLE_CLOUD_URL', CONVEX_URL ? CONVEX_URL + '/api/enable-cloud' : '');
-  _f('DOWNLOAD_SOURCE_URL', CONVEX_URL ? CONVEX_URL + '/api/download-source' : '');
+  _f('VALIDATE_LICENSE_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/validate-license' : '');
+  _f('NOTIFICATIONS_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/notifications' : '');
+  _f('CREATE_PROJECT_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/create-lovable-project' : '');
+  _f('REMOVE_WATERMARK_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/remove-watermark' : '');
+  _f('PUBLISH_PROJECT_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/publish-project' : '');
+  _f('ENABLE_CLOUD_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/enable-cloud' : '');
+  _f('DOWNLOAD_SOURCE_URL', CONVEX_SITE_URL ? CONVEX_SITE_URL + '/api/download-source' : '');
 
   try { if (Object.freeze) Object.freeze(_c); } catch(e) {}
   try {

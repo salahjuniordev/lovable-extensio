@@ -17,7 +17,8 @@
     "https://lovable.dev/*",
     "https://lovable-api.com/*",
     "https://lov.powerkits.net/*",
-    "https://*.convex.cloud/*"
+    "https://*.convex.cloud/*",
+    "https://*.convex.site/*"
   ],
   "action": {
     "default_title": "Lovable Pro",
